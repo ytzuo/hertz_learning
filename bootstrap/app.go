@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"Hertz/biz/handler"
 	"Hertz/biz/router"
@@ -17,8 +18,7 @@ import (
 )
 
 type App struct {
-	h  *server.Hertz
-	mq *mq.MemoryMQ
+	h *server.Hertz
 }
 
 // NewApp 是当前服务实例的组合根。
@@ -27,12 +27,7 @@ type App struct {
 func NewApp() *App {
 	cfg := config.Load()
 
-	// 这些是 demo 使用的本地适配器。它们的形态接近真实中间件客户端，
-	// 后续可以替换成 MySQL、Redis、Kafka 等实际实现。
-	db := database.NewMemoryDB()
-	redis := cache.NewMemoryRedis()
-	eventBus := mq.NewMemoryMQ()
-	registerConsumers(eventBus)
+	db, redis, eventBus := buildInfra(cfg)
 
 	jwtManager := auth.NewJWTManager(
 		cfg.Auth.JWTSecret,
@@ -58,13 +53,55 @@ func NewApp() *App {
 	})
 
 	return &App{
-		h:  h,
-		mq: eventBus,
+		h: h,
 	}
 }
 
 func (a *App) Run() {
 	a.h.Spin()
+}
+
+type dataStore interface {
+	service.UserRepository
+	service.ProductRepository
+	service.OrderRepository
+}
+
+func buildInfra(cfg config.Config) (dataStore, service.ProductCache, service.EventPublisher) {
+	switch strings.ToLower(cfg.Infra.Adapter) {
+	case "real":
+		ctx := context.Background()
+
+		db, err := database.NewMySQL(database.MySQLConfig{
+			DSN: cfg.Infra.Database.DSN,
+		})
+		if err != nil {
+			panic(fmt.Errorf("connect mysql: %w", err))
+		}
+
+		redis, err := cache.NewRedis(ctx, cache.RedisConfig{
+			Addr:     cfg.Infra.Redis.Addr,
+			Password: cfg.Infra.Redis.Password,
+			DB:       cfg.Infra.Redis.DB,
+		})
+		if err != nil {
+			panic(fmt.Errorf("connect redis: %w", err))
+		}
+
+		eventBus := mq.NewKafka(mq.KafkaConfig{
+			Brokers: cfg.Infra.MQ.Brokers,
+		})
+
+		return db, redis, eventBus
+	case "memory", "":
+		db := database.NewMemoryDB()
+		redis := cache.NewMemoryRedis()
+		eventBus := mq.NewMemoryMQ()
+		registerConsumers(eventBus)
+		return db, redis, eventBus
+	default:
+		panic(fmt.Errorf("unsupported APP_ADAPTER %q", cfg.Infra.Adapter))
+	}
 }
 
 // registerConsumers 模拟当前服务进程内的异步消费者。

@@ -2,20 +2,32 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"Hertz/biz/model"
-	"Hertz/infra/cache"
 	"Hertz/infra/database"
 )
 
 type ProductService struct {
-	db    *database.MemoryDB
-	cache *cache.MemoryRedis
+	db    ProductRepository
+	cache ProductCache
 }
 
-func NewProductService(db *database.MemoryDB, cache *cache.MemoryRedis) *ProductService {
+type ProductRepository interface {
+	ListProducts(ctx context.Context) ([]database.Product, error)
+	GetProduct(ctx context.Context, sku string) (database.Product, error)
+	AdjustStock(ctx context.Context, sku string, delta int) (database.Product, error)
+}
+
+type ProductCache interface {
+	Get(ctx context.Context, key string) (any, error)
+	Set(ctx context.Context, key string, value any, ttl time.Duration) error
+	Delete(ctx context.Context, key string) error
+}
+
+func NewProductService(db ProductRepository, cache ProductCache) *ProductService {
 	return &ProductService{
 		db:    db,
 		cache: cache,
@@ -40,6 +52,9 @@ func (s *ProductService) Get(ctx context.Context, sku string) (model.ProductResp
 	// Cache-aside 模式：先读缓存；缓存未命中时查数据库，然后回填缓存。
 	if cached, err := s.cache.Get(ctx, key); err == nil {
 		if product, ok := cached.(model.ProductResponse); ok {
+			return product, nil
+		}
+		if product, ok := decodeCachedProduct(cached); ok {
 			return product, nil
 		}
 	}
@@ -79,4 +94,20 @@ func toProductResponse(product database.Product) model.ProductResponse {
 
 func productCacheKey(sku string) string {
 	return fmt.Sprintf("product:%s", sku)
+}
+
+func decodeCachedProduct(value any) (model.ProductResponse, bool) {
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return model.ProductResponse{}, false
+	}
+
+	var product model.ProductResponse
+	if err := json.Unmarshal(bytes, &product); err != nil {
+		return model.ProductResponse{}, false
+	}
+	if product.SKU == "" {
+		return model.ProductResponse{}, false
+	}
+	return product, true
 }

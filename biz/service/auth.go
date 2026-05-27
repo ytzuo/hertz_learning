@@ -12,11 +12,15 @@ import (
 var ErrInvalidCredential = errors.New("invalid email or password")
 
 type AuthService struct {
-	db         *database.MemoryDB
+	db         UserRepository
 	jwtManager *auth.JWTManager
 }
 
-func NewAuthService(db *database.MemoryDB, jwtManager *auth.JWTManager) *AuthService {
+type UserRepository interface {
+	FindUserByEmail(ctx context.Context, email string) (database.User, error)
+}
+
+func NewAuthService(db UserRepository, jwtManager *auth.JWTManager) *AuthService {
 	return &AuthService{
 		db:         db,
 		jwtManager: jwtManager,

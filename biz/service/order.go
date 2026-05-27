@@ -12,11 +12,21 @@ import (
 var ErrForbidden = errors.New("forbidden")
 
 type OrderService struct {
-	db *database.MemoryDB
-	mq *mq.MemoryMQ
+	db OrderRepository
+	mq EventPublisher
 }
 
-func NewOrderService(db *database.MemoryDB, mq *mq.MemoryMQ) *OrderService {
+type OrderRepository interface {
+	CreateOrder(ctx context.Context, userID string, items []database.OrderItem) (database.Order, error)
+	GetOrder(ctx context.Context, orderID string) (database.Order, error)
+	MarkOrderPaid(ctx context.Context, orderID string) (database.Order, error)
+}
+
+type EventPublisher interface {
+	Publish(ctx context.Context, event mq.Event) error
+}
+
+func NewOrderService(db OrderRepository, mq EventPublisher) *OrderService {
 	return &OrderService{
 		db: db,
 		mq: mq,
