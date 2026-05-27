@@ -8,6 +8,7 @@ import (
 )
 
 var ErrCacheMiss = errors.New("cache miss")
+var ErrScriptUnsupported = errors.New("lua script is unsupported by memory redis")
 
 type entry struct {
 	value     any
@@ -55,6 +56,10 @@ func (r *MemoryRedis) Delete(ctx context.Context, key string) error {
 
 	delete(r.items, key)
 	return nil
+}
+
+func (r *MemoryRedis) Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+	return nil, ErrScriptUnsupported
 }
 
 func expired(item entry) bool {

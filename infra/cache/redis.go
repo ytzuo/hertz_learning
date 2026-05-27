@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -38,7 +39,7 @@ func (r *Redis) Close() error {
 
 func (r *Redis) Get(ctx context.Context, key string) (any, error) {
 	value, err := r.client.Get(ctx, key).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil, ErrCacheMiss
 	}
 	if err != nil {
@@ -62,4 +63,8 @@ func (r *Redis) Set(ctx context.Context, key string, value any, ttl time.Duratio
 
 func (r *Redis) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
+}
+
+func (r *Redis) Eval(ctx context.Context, script string, keys []string, args ...any) (any, error) {
+	return r.client.Eval(ctx, script, keys, args...).Result()
 }
