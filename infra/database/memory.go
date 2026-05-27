@@ -8,46 +8,6 @@ import (
 	"time"
 )
 
-var (
-	ErrNotFound       = errors.New("record not found")
-	ErrStockNotEnough = errors.New("stock not enough")
-)
-
-type User struct {
-	ID           string `gorm:"primaryKey;size:64"`
-	Name         string `gorm:"size:128"`
-	Email        string `gorm:"uniqueIndex;size:255"`
-	PasswordHash string `gorm:"size:255"`
-	Role         string `gorm:"size:64"`
-}
-
-type Product struct {
-	SKU       string `gorm:"primaryKey;size:64"`
-	Name      string `gorm:"size:255"`
-	Price     int
-	Inventory int
-}
-
-type Order struct {
-	ID          string `gorm:"primaryKey;size:64"`
-	UserID      string `gorm:"index;size:64"`
-	Status      string `gorm:"size:32"`
-	Items       []OrderItem
-	TotalAmount int
-	CreatedAt   time.Time
-	PaidAt      time.Time
-}
-
-type OrderItem struct {
-	ID        uint   `gorm:"primaryKey"`
-	OrderID   string `gorm:"index;size:64"`
-	SKU       string
-	Name      string
-	UnitPrice int
-	Qty       int
-	Amount    int
-}
-
 // MemoryDB 是 demo 使用的数据库适配器。
 // 扣减库存、创建订单等类似事务的操作会放在同一个锁保护的临界区中。
 type MemoryDB struct {
