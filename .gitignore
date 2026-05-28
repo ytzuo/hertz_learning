@@ -1,0 +1,18 @@
+# Go build outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Local build directories
+bin/
+dist/
+build/
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
