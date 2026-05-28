@@ -57,6 +57,8 @@ type RedisConfig struct {
 
 type MQConfig struct {
 	Brokers []string
+	GroupID string
+	Topics  []string
 }
 
 func Load() Config {
@@ -92,6 +94,8 @@ func Load() Config {
 			},
 			MQ: MQConfig{
 				Brokers: getEnvList("KAFKA_BROKERS", []string{"127.0.0.1:9092"}),
+				GroupID: getEnv("KAFKA_GROUP_ID", "commerce-api-worker"),
+				Topics:  getEnvList("KAFKA_TOPICS", []string{"order.created", "order.paid"}),
 			},
 		},
 	}
